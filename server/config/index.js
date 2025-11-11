@@ -16,7 +16,7 @@ export const checkEnv = () => {
         throw "Initialization Error";
     ENV = {
         ACCESS_TOKEN: process.env.ACCESS_TOKEN,
-        DB_NAME: "drive_ease",
+        DB_NAME: "VeloRent",
         CLIENT_URL: process.env.CLIENT_URL,
         MAIL_EMAIL: process.env.MAIL_EMAIL,
         MAIL_PASS: process.env.MAIL_PASS,
