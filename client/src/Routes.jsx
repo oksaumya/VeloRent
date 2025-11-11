@@ -5,7 +5,6 @@ export default function CustomRoutes() {
     return (
         <Routes>
             <Route path="/" element={<Home />} />
-
             <Route path="/authenticate" element={<Auth />} />
             <Route path="/authenticate/verifyEmail/:token" element={<VerifyEmail />} />
 

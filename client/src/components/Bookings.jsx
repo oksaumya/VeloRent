@@ -113,6 +113,7 @@ export default function Bookings({ show, handleClose, user, fetchUser }) {
                 ) : (
                     <i>No bookings found!</i>
                 )}
+                
             </Modal.Body>
             <Modal.Footer>
                 <Button variant="secondary" onClick={handleClose}>

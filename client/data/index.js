@@ -16,6 +16,7 @@ function getRandomItem(arr) {
 }
 
 async function callApi(i) {
+    
     try {
         const res = await axios.get(`https://knowyourdata-tfds.withgoogle.com/item?id=train[5shard]_${i}&sample_every=1&dataset=cars196`);
         console.log("ext", res.data[10].values[0]);

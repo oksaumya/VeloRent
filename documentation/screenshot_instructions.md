@@ -19,6 +19,7 @@ Take the following screenshots to include in your presentation:
 2. **Booking Confirmation** - Success message or confirmation page
 3. **My Bookings** - List of user's past/current bookings
 
+
 ## User Profile
 1. **Profile Page** - User information display
 2. **Edit Profile** - Form for updating user information
