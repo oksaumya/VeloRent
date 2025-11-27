@@ -5,7 +5,8 @@ import { BookingModel, CarModel, UserModel } from "../models/index.js";
 
 const getAllCars = async (req, res) => {
     console.log("Get all cars requested!");
-    let { searchText, fuel, numSeats, minPrice, maxPrice } = req.query;
+    console.log("Query params:", req.query);
+    let { searchText, fuel, numSeats, minPrice, maxPrice, page = 1, limit = 12, sortBy = "name", sortOrder = "asc" } = req.query;
     const matchConditions = {};
 
     if (searchText) matchConditions.name = { $regex: searchText, $options: "i" };
@@ -16,9 +17,94 @@ const getAllCars = async (req, res) => {
         if (minPrice) matchConditions.rent.$gte = parseInt(minPrice);
         if (maxPrice) matchConditions.rent.$lte = parseInt(maxPrice);
     }
-    // console.log("MC", matchConditions);
-    const cars = await CarModel.aggregate([
-        { $match: matchConditions },
+    
+    // Parse pagination and sorting parameters
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    
+    // Validate pagination parameters
+    if (pageNum < 1 || limitNum < 1 || limitNum > 100) {
+        console.error("Invalid pagination params:", { pageNum, limitNum });
+        return res.status(400).send({ 
+            message: "Invalid pagination parameters",
+            data: [],
+            pagination: null
+        });
+    }
+    
+    const skip = (pageNum - 1) * limitNum;
+    
+    // Determine sort field and order
+    const sortField = sortBy === "name" || sortBy === "rent" || sortBy === "random" ? sortBy : "name";
+    const sortDirection = sortOrder === "desc" ? -1 : 1;
+    
+    console.log("Sort settings:", { sortField, sortDirection, pageNum, limitNum });
+    
+    // Get total count for pagination
+    const totalCount = await CarModel.countDocuments(matchConditions);
+    const totalPages = Math.ceil(totalCount / limitNum);
+    
+    // If requested page exceeds total pages, return empty with pagination info
+    if (pageNum > totalPages && totalPages > 0) {
+        console.log(`Page ${pageNum} exceeds total pages ${totalPages}`);
+        return res.status(200).send({ 
+            data: [],
+            pagination: {
+                currentPage: pageNum,
+                totalPages,
+                totalCount,
+                limit: limitNum,
+                hasNextPage: false,
+                hasPrevPage: pageNum > 1
+            }
+        });
+    }
+    
+    console.log("Pagination:", { totalCount, totalPages, currentPage: pageNum });
+    
+    // Build sort object
+    let sortObject = {};
+    if (sortField === "random") {
+        // For random sorting, we don't use traditional sort
+        sortObject = null;
+    } else if (sortField === "name") {
+        // For name sorting, we need to handle case-insensitivity
+        // We'll add a temporary lowercase field for sorting
+        sortObject = { nameLower: sortDirection };
+    } else {
+        // For numeric fields like rent
+        sortObject = { [sortField]: sortDirection };
+    }
+    
+    console.log("Sort object:", sortObject);
+    
+    // Sort BEFORE projection to ensure fields exist
+    const pipeline = [
+        { $match: matchConditions }
+    ];
+    
+    // Add lowercase name field if sorting by name for case-insensitive sort
+    if (sortField === "name") {
+        pipeline.push({
+            $addFields: {
+                nameLower: { $toLower: "$name" }
+            }
+        });
+    }
+    
+    // Add random field if sorting randomly
+    if (sortField === "random") {
+        pipeline.push({
+            $sample: { size: totalCount > 0 ? Math.min(totalCount, 1000) : 1000 }
+        });
+    } else {
+        // Add normal sorting
+        pipeline.push({ $sort: sortObject });
+    }
+    
+    pipeline.push(
+        { $skip: skip },
+        { $limit: limitNum },
         {
             $lookup: {
                 from: "bookings",
@@ -47,11 +133,29 @@ const getAllCars = async (req, res) => {
                 },
                 _id: 0,
             },
-        },
-        { $limit: 20 }  // Adjust the limit value as needed
-    ]);
-    // console.log(cars.length);
-    res.status(200).send({ data: cars });
+        }
+    );
+    
+    const cars = await CarModel.aggregate(pipeline);
+    console.log(`Returning ${cars.length} cars out of ${totalCount} total`);
+    
+    // Log first few car names to verify sorting
+    if (cars.length > 0) {
+        console.log("First 5 car names:", cars.slice(0, 5).map(c => c.name));
+        console.log("First 5 car rents:", cars.slice(0, 5).map(c => c.rent));
+    }
+    
+    res.status(200).send({ 
+        data: cars,
+        pagination: {
+            currentPage: pageNum,
+            totalPages,
+            totalCount,
+            limit: limitNum,
+            hasNextPage: pageNum < totalPages,
+            hasPrevPage: pageNum > 1
+        }
+    });
 };
 
 const newBooking = async (req, res) => {
@@ -161,4 +265,15 @@ const cancelBooking = async (req, res) => {
     res.status(200).send({ message: "Booking canceled successfully!", next: "home" });
 };
 
-export default { getAllCars, newBooking, retryBooking, confirmBooking, cancelBooking };
+const deleteBooking = async (req, res) => {
+    console.log("Delete booking");
+    const { id } = req.params;
+    const bookingDetails = await BookingModel.findById(id);
+    if (!bookingDetails) return res.status(200).send({ message: "Invalid booking", next: "home" });
+    
+    // Delete the booking permanently
+    await BookingModel.findByIdAndDelete(id);
+    res.status(200).send({ message: "Booking deleted successfully!", next: "home" });
+};
+
+export default { getAllCars, newBooking, retryBooking, confirmBooking, cancelBooking, deleteBooking };

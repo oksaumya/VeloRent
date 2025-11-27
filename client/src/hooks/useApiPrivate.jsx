@@ -32,11 +32,17 @@ export default function useApiPrivate() {
 
     const getCars = async (params) => {
         try {
+            console.log("getCars called with params:", params);
             const queryParams = new URLSearchParams(params).toString();
-            const res = await apiManager.get(`/cars?${queryParams}`);
-            return res.data.data;
+            console.log("Query string:", queryParams);
+            const url = `/cars?${queryParams}`;
+            console.log("Full URL:", url);
+            const res = await apiManager.get(url);
+            console.log("Response from server:", res.data);
+            return res.data;
         } catch (err) {
-            return [];
+            console.error("Error in getCars:", err);
+            return { data: [], pagination: null };
         }
     };
 
@@ -85,6 +91,18 @@ export default function useApiPrivate() {
         }
     };
 
+    const deleteBooking = async (id) => {
+        try {
+            console.log("Deleting booking with ID:", id);
+            const res = await apiManager.delete(`/cars/delete/${id}`);
+            console.log("Delete response:", res.data);
+            return res.data;
+        } catch (err) {
+            console.error("Error deleting booking:", err);
+            return { message: "Failed to delete booking", next: "" };
+        }
+    };
+
     const updateUser = async (data) => {
         try {
             console.table(data);
@@ -95,5 +113,5 @@ export default function useApiPrivate() {
         }
     };
 
-    return { getCars, getUserInfo, newBooking, retryBooking, confirmBooking, cancelBooking, updateUser };
+    return { getCars, getUserInfo, newBooking, retryBooking, confirmBooking, cancelBooking, deleteBooking, updateUser };
 }

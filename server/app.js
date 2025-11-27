@@ -51,7 +51,17 @@ mongoose.connect(ENV.MONGODB_URL, { dbName: ENV.DB_NAME }).then(() => {
     app.listen(ENV.PORT, () => console.log(`Server is up at ${ENV.PORT}`));
 
     // FIRST TIME IMPORTING CARS
-   //firstTimeSetup();
+    // firstTimeSetup();
+    
+    // Keep-alive mechanism to prevent server sleep (e.g., on Render free tier)
+    const KEEP_ALIVE_INTERVAL = 14 * 60 * 1000; // 14 minutes
+    setInterval(() => {
+        const timestamp = new Date().toISOString();
+        console.log(`[Keep-Alive] Server ping at ${timestamp}`);
+        // You can add additional logic here if needed
+    }, KEEP_ALIVE_INTERVAL);
+    
+    console.log("Keep-alive mechanism activated (pings every 14 minutes)");
 });
 
 const firstTimeSetup = () => {

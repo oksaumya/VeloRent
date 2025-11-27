@@ -81,11 +81,29 @@
         padding: $spacing
         overflow-y: auto
 
-        h2
-            padding: calc($spacing / 2) 0
-            font-weight: $fs-dark
-            color: $color-primary-400
+        .listings-header
+            display: flex
+            justify-content: space-between
+            align-items: center
             margin-bottom: $spacing
+            flex-wrap: wrap
+            gap: 1rem
+            
+            h2
+                padding: calc($spacing / 2) 0
+                font-weight: $fs-dark
+                color: $color-primary-400
+                margin-bottom: 0
+            
+            .sort-controls
+                display: flex
+                align-items: center
+                gap: 0.5rem
+                
+                .form-label
+                    margin-bottom: 0
+                    color: $color-primary-400
+                    font-weight: $fs-default
         
         .car-grid
             display: grid
@@ -154,6 +172,30 @@
             align-items: center
             grid-column: 1 / -1
             padding: 2rem
+        
+        .pagination-wrapper
+            margin-top: 2rem
+            
+            .pagination
+                .page-item
+                    .page-link
+                        color: $color-primary-400
+                        border-color: $color-primary-200
+                        
+                        &:hover
+                            background-color: $color-primary-100
+                            border-color: $color-primary-200
+                    
+                    &.active .page-link
+                        background-color: $color-accent-primary
+                        border-color: $color-accent-primary
+                    
+                    &.disabled .page-link
+                        color: #ccc
+            
+            .pagination-info
+                color: $color-primary-400
+                font-size: $fs-small
 
     .footer
         grid-area: footer

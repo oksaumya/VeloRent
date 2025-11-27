@@ -5,7 +5,7 @@ import { useApiPrivate } from "../hooks";
 
 export default function Bookings({ show, handleClose, user, fetchUser }) {
     const [myBookings, setMyBookings] = useState([]);
-    const { cancelBooking, retryBooking } = useApiPrivate();
+    const { cancelBooking, retryBooking, deleteBooking } = useApiPrivate();
 
     useEffect(() => {
         if (user && user.bookingDetails) {
@@ -49,14 +49,36 @@ export default function Bookings({ show, handleClose, user, fetchUser }) {
         }
     };
 
+    const handleDeleteBooking = async (bookingId) => {
+        if (!window.confirm("Are you sure you want to delete this booking? This action cannot be undone.")) {
+            return;
+        }
+        console.log("Delete booking ID:", bookingId);
+        const res = await deleteBooking(bookingId);
+        if (res && res.message) {
+            alert(res.message);
+            if (res.next === "home") {
+                fetchUser();
+                handleClose();
+            }
+        } else {
+            alert("Failed to delete booking. Please try again.");
+        }
+    };
+
     const renderActions = (booking) => {
         const currentTime = dayjs();
         const bookingEndTime = dayjs(booking.to);
         if (booking.status === "pending" || (booking.status === "failed" && bookingEndTime.isAfter(currentTime))) {
             return (
-                <Button variant="danger" onClick={() => handleRetryPayment(booking.bookingId)} size="sm">
-                    Retry
-                </Button>
+                <>
+                    <Button variant="danger" onClick={() => handleRetryPayment(booking.bookingId)} size="sm" className="me-2">
+                        Retry
+                    </Button>
+                    <Button variant="outline-danger" onClick={() => handleDeleteBooking(booking.bookingId)} size="sm">
+                        Delete
+                    </Button>
+                </>
             );
         }
         if (booking.status === "completed" && bookingEndTime.isAfter(currentTime)) {
@@ -66,7 +88,12 @@ export default function Bookings({ show, handleClose, user, fetchUser }) {
                 </Button>
             );
         }
-        return null;
+        // For past bookings or canceled bookings, show delete option
+        return (
+            <Button variant="outline-danger" onClick={() => handleDeleteBooking(booking.bookingId)} size="sm">
+                Delete
+            </Button>
+        );
     };
 
     return (

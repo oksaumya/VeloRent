@@ -1,8 +1,8 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useEffect, useRef, useState } from "react";
-import { Button, ButtonGroup, FloatingLabel, Form, Image, Navbar, Container, Card, Badge } from "react-bootstrap";
+import { Button, ButtonGroup, FloatingLabel, Form, Image, Navbar, Container, Card, Badge, Pagination } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
-import { UserPlaceholder, LogoSVG } from "../assets";
+import { UserPlaceholder } from "../assets";
 import { Bookings, NewBooking, UserProfile } from "../components";
 import { useApiPrivate, useSessionStorage } from "../hooks";
 import "./Home.sass";
@@ -10,6 +10,7 @@ import PulseLoader from "react-spinners/PulseLoader";
 
 export default function Home() {
     const [cars, setCars] = useState([]);
+    const [pagination, setPagination] = useState(null);
     const [user, setUser] = useState({});
     const [searchText, setSearchText] = useState("");
     const [fuelType, setFuelType] = useState("");
@@ -17,6 +18,9 @@ export default function Home() {
     const [priceRange, setPriceRange] = useState([1000, 10000]);
     const [selectedCar, setSelectedCar] = useState();
     const [params, setParams] = useState({});
+    const [currentPage, setCurrentPage] = useState(1);
+    const [sortBy, setSortBy] = useState("name");
+    const [sortOrder, setSortOrder] = useState("asc");
     const [showUserModal, setShowUserModal] = useState(false);
     const [showBookingModal, setShowBookingModal] = useState(false);
     const [showNewBookingModal, setShowNewBookingModel] = useState(false);
@@ -28,12 +32,16 @@ export default function Home() {
     useEffect(() => {
         const authKey = getItem("LOGGED_IN");
         if (!authKey) navigate("/authenticate", { replace: true });
-        fetchCars();
+        // Initialize with default pagination and sorting
+        setParams({ page: 1, limit: 12, sortBy: "name", sortOrder: "asc" });
         fetchUser();
     }, []);
 
     useEffect(() => {
-        fetchCars();
+        console.log("Params changed:", params);
+        if (Object.keys(params).length > 0) {
+            fetchCars();
+        }
     }, [params]);
 
     const fetchUser = async () => {
@@ -42,8 +50,22 @@ export default function Home() {
     };
 
     const fetchCars = async () => {
-        const allCars = await getCars(params);
-        setCars(allCars && allCars?.length > 0 ? allCars : []);
+        console.log("Fetching cars with params:", params);
+        const result = await getCars(params);
+        console.log("API Response:", result);
+        console.log("Cars data:", result?.data);
+        
+        const carsData = result?.data && result.data.length > 0 ? result.data : [];
+        
+        // Log car names to verify sorting
+        if (carsData.length > 0) {
+            console.log("Car names in order:", carsData.map(c => c.name));
+            console.log("Car rents in order:", carsData.map(c => c.rent));
+        }
+        
+        setCars(carsData);
+        setPagination(result?.pagination || null);
+        console.log("Pagination:", result?.pagination);
     };
 
     const handlePriceChange = (e) => {
@@ -58,7 +80,12 @@ export default function Home() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        const localParams = {};
+        const localParams = {
+            page: 1,
+            limit: 12,
+            sortBy,
+            sortOrder
+        };
 
         if (searchText !== "") localParams.searchText = searchText;
         if (fuelType !== "") localParams.fuel = fuelType;
@@ -67,6 +94,7 @@ export default function Home() {
             localParams.minPrice = priceRange[0];
             localParams.maxPrice = priceRange[1];
         }
+        setCurrentPage(1);
         setParams(localParams);
     };
 
@@ -75,7 +103,62 @@ export default function Home() {
         setFuelType("");
         setSeats("");
         setPriceRange([1000, 10000]);
-        setParams({});
+        setSortBy("name");
+        setSortOrder("asc");
+        setCurrentPage(1);
+        setParams({ page: 1, limit: 12, sortBy: "name", sortOrder: "asc" });
+    };
+    
+    const handlePageChange = (page) => {
+        // Validate page number
+        if (!page || page < 1) {
+            console.error("Invalid page number:", page);
+            return;
+        }
+        
+        // Check against totalPages if available
+        if (pagination && page > pagination.totalPages) {
+            console.error("Page number exceeds total pages:", page, ">", pagination.totalPages);
+            return;
+        }
+        
+        console.log("Changing to page:", page);
+        setCurrentPage(page);
+        const newParams = { ...params, page, limit: 12, sortBy, sortOrder };
+        setParams(newParams);
+        // Scroll to top of car listings
+        if (itemCrRef.current) {
+            itemCrRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    };
+    
+    const handleSortChange = (newSortBy) => {
+        console.log("Sort button clicked:", newSortBy);
+        console.log("Current sort:", { sortBy, sortOrder });
+        
+        let newSortOrder = sortOrder;
+        
+        // Random doesn't need order toggling
+        if (newSortBy === "random") {
+            newSortOrder = "asc"; // doesn't matter for random
+        } else if (newSortBy === sortBy) {
+            // If clicking the same sort field, toggle the order
+            newSortOrder = sortOrder === "asc" ? "desc" : "asc";
+        } else {
+            // If switching to a new field, default to ascending
+            newSortOrder = "asc";
+        }
+        
+        console.log("New sort:", { sortBy: newSortBy, sortOrder: newSortOrder });
+        
+        setSortBy(newSortBy);
+        setSortOrder(newSortOrder);
+        setCurrentPage(1);
+        
+        // Create new params preserving all filters
+        const newParams = { ...params, sortBy: newSortBy, sortOrder: newSortOrder, page: 1, limit: 12 };
+        console.log("Setting new params:", newParams);
+        setParams(newParams);
     };
 
     const logout = () => {
@@ -209,11 +292,52 @@ export default function Home() {
                 </div>
                 
                 <div className="car-listings" id="itemsCr" ref={itemCrRef}>
-                    <h2>Available Vehicles</h2>
+                    <div className="listings-header">
+                        <h2>Available Vehicles</h2>
+                        <div className="sort-controls">
+                            <Form.Label className="me-2">Sort by:</Form.Label>
+                            <ButtonGroup>
+                                <Button
+                                    variant={sortBy === "name" ? "primary" : "outline-primary"}
+                                    size="sm"
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        console.log("Name button clicked!");
+                                        handleSortChange("name");
+                                    }}
+                                >
+                                    Name {sortBy === "name" && (sortOrder === "asc" ? "↑" : "↓")}
+                                </Button>
+                                <Button
+                                    variant={sortBy === "rent" ? "primary" : "outline-primary"}
+                                    size="sm"
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        console.log("Price button clicked!");
+                                        handleSortChange("rent");
+                                    }}
+                                >
+                                    Price {sortBy === "rent" && (sortOrder === "asc" ? "↑" : "↓")}
+                                </Button>
+                                <Button
+                                    variant={sortBy === "random" ? "primary" : "outline-primary"}
+                                    size="sm"
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        console.log("Random button clicked!");
+                                        handleSortChange("random");
+                                    }}
+                                >
+                                    Random 🎲
+                                </Button>
+                            </ButtonGroup>
+                        </div>
+                    </div>
+                    
                     <div className="car-grid">
                         {cars.length > 0 ? (
                             cars.map((car, i) => (
-                                <Card key={i} className="car-card">
+                                <Card key={car.id || car.name + i} className="car-card">
                                     <div className="car-img-container">
                                         <Card.Img variant="top" src={car.imgSrc} alt={car.name} />
                                     </div>
@@ -249,6 +373,92 @@ export default function Home() {
                             </div>
                         )}
                     </div>
+                    
+                    {pagination && (
+                        <div className="pagination-wrapper">
+                            {pagination.totalPages > 1 && (
+                                <Pagination className="justify-content-center mt-4">
+                                    <Pagination.First 
+                                        onClick={() => handlePageChange(1)} 
+                                        disabled={currentPage === 1}
+                                    />
+                                    <Pagination.Prev 
+                                        onClick={() => handlePageChange(currentPage - 1)} 
+                                        disabled={!pagination.hasPrevPage}
+                                    />
+                                    
+                                    {pagination.totalPages <= 10 ? [...Array(Math.min(pagination.totalPages, 10))].map((_, index) => {
+                                        const page = index + 1;
+                                        // Show first page, last page, current page, and pages around current
+                                        if (
+                                            page === 1 ||
+                                            page === pagination.totalPages ||
+                                            (page >= currentPage - 1 && page <= currentPage + 1)
+                                        ) {
+                                            return (
+                                                <Pagination.Item
+                                                    key={page}
+                                                    active={page === currentPage}
+                                                    onClick={() => handlePageChange(page)}
+                                                    disabled={page > pagination.totalPages}
+                                                >
+                                                    {page}
+                                                </Pagination.Item>
+                                            );
+                                        } else if (
+                                            page === currentPage - 2 ||
+                                            page === currentPage + 2
+                                        ) {
+                                            return <Pagination.Ellipsis key={page} disabled />;
+                                        }
+                                        return null;
+                                    }) : (
+                                        <>
+                                            <Pagination.Item active={currentPage === 1} onClick={() => handlePageChange(1)}>1</Pagination.Item>
+                                            {currentPage > 3 && <Pagination.Ellipsis disabled />}
+                                            {currentPage > 2 && currentPage <= 10 && (
+                                                <Pagination.Item onClick={() => handlePageChange(currentPage - 1)}>{currentPage - 1}</Pagination.Item>
+                                            )}
+                                            {currentPage !== 1 && currentPage !== 10 && currentPage <= 10 && (
+                                                <Pagination.Item active>{currentPage}</Pagination.Item>
+                                            )}
+                                            {currentPage < 9 && currentPage < 10 && (
+                                                <Pagination.Item onClick={() => handlePageChange(currentPage + 1)}>{currentPage + 1}</Pagination.Item>
+                                            )}
+                                            {currentPage < 8 && <Pagination.Ellipsis disabled />}
+                                            <Pagination.Item 
+                                                active={currentPage === 10} 
+                                                onClick={() => handlePageChange(10)}
+                                            >
+                                                10
+                                            </Pagination.Item>
+                                        </>
+                                    )}
+                                    
+                                    <Pagination.Next 
+                                        onClick={() => handlePageChange(currentPage + 1)} 
+                                        disabled={!pagination.hasNextPage || currentPage >= 10}
+                                    />
+                                    <Pagination.Last 
+                                        onClick={() => handlePageChange(Math.min(pagination.totalPages, 10))} 
+                                        disabled={currentPage >= 10}
+                                    />
+                                </Pagination>
+                            )}
+                            <div className="pagination-info text-center mt-2">
+                                <small className="text-muted">
+                                    {cars.length > 0 ? (
+                                        <>
+                                            Showing {cars.length} of {pagination.totalCount} vehicles
+                                            {pagination.totalPages > 1 && ` (Page ${Math.min(currentPage, 10)} of ${Math.min(pagination.totalPages, 10)})`}
+                                        </>
+                                    ) : (
+                                        'No vehicles found'
+                                    )}
+                                </small>
+                            </div>
+                        </div>
+                    )}
                 </div>
                 
                 <footer className="footer">

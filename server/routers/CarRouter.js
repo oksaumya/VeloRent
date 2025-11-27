@@ -6,6 +6,7 @@ const router = Router();
 router.get("/", Interceptors.verifyAccess, CarModule.getAllCars);
 router.put("/:id", Interceptors.verifyAccess, CarModule.retryBooking);
 router.delete("/:id", Interceptors.verifyAccess, CarModule.cancelBooking);
+router.delete("/delete/:id", Interceptors.verifyAccess, CarModule.deleteBooking);
 router.post("/newBooking", Interceptors.verifyAccess, CarModule.newBooking);
 router.post("/confirmBooking", Interceptors.verifyAccess, CarModule.confirmBooking);
 

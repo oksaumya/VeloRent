@@ -67,7 +67,19 @@ const register = async (req, res) => {
             urlPath,
             msg: "You're almost there to start enjoying VeloRent. Simply click the link below to verify your email address and get started.",
         });
-        sendEmail(email, "Verify Email Address", htmlData);
+        
+        try {
+            await sendEmail(email, "Verify Email Address", htmlData);
+            console.log("Verification email sent successfully to:", email);
+        } catch (emailError) {
+            console.error("Failed to send verification email:", emailError);
+            await UserModel.findByIdAndDelete(userCreated._id);
+            return res.status(200).send({ 
+                message: "Registration failed. Unable to send verification email. Please try again or contact support.", 
+                next: "register" 
+            });
+        }
+        
         res.status(200).send({ message: "We have sent an email that contains link to complete your registration.", next: "register" });
     } catch (err) {
         console.error(err);
@@ -90,7 +102,18 @@ const forgotPassword = async (req, res) => {
             urlPath,
             msg: "We have received a request to reset the password for your account. Simply click the link below to verify your email address and reset password.",
         });
-        sendEmail(email, "Verify Email Address", htmlData);
+        
+        try {
+            await sendEmail(email, "Reset Password - Verify Email Address", htmlData);
+            console.log("Password reset email sent successfully to:", email);
+        } catch (emailError) {
+            console.error("Failed to send password reset email:", emailError);
+            return res.status(200).send({ 
+                message: "Unable to send password reset email. Please try again or contact support.", 
+                next: "login" 
+            });
+        }
+        
         res.status(200).send({ message: "We have sent an email that contains link to reset your password.", next: "login" });
     } catch (err) {
         console.error(err);
